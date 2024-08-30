@@ -2,12 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vertical Video Player</title>
     <style>
-
-
         body, html {
             margin: 0;
             padding: 0;
@@ -42,7 +39,7 @@
         video {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain; /* Adjust to fit within the container */
         }
 
         .controls {
@@ -274,8 +271,6 @@
         progressHandle.style.display = 'block';
         handleProgressBarMove(e);
     });
-
-    const touchAreaHeight = 50; // Define a smaller touch area height for the progress bar
 
     progressBarContainer.addEventListener('touchstart', (e) => {
         if (e.touches[0].clientY <= window.innerHeight - touchAreaHeight) {
