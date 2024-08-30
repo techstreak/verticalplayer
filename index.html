@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertical Video Player</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: black;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: black;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+            aspect-ratio: 9 / 16;
+            background-color: black;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .controls {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: white;
+            font-size: 50px;
+            opacity: 0.7;
+            display: none;
+            user-select: none; /* Prevent text selection */
+        }
+
+        .video-wrapper:hover .controls {
+            display: block;
+        }
+
+        #bottomControls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+
+        #muteBtn {
+            font-size: 30px;
+            cursor: pointer;
+            color: white;
+            opacity: 0.7;
+            user-select: none; /* Prevent text selection */
+        }
+
+        #progressBarContainer {
+            flex-grow: 1;
+            height: 5px;
+            background-color: rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            margin: 0 10px;
+            position: relative;
+        }
+
+        #progressBar {
+            width: 0;
+            height: 100%;
+            background-color: white;
+        }
+
+        #progressHandle {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 15px;
+            height: 15px;
+            background-color: white;
+            border-radius: 50%;
+            display: none;
+        }
+
+        #currentTime {
+            font-size: 14px;
+            color: white;
+            opacity: 0.7;
+            user-select: none; /* Prevent text selection */
+        }
+
+        #touchOverlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50px; /* Adjust to your desired touch area height */
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="video-container">
+    <div class="video-wrapper">
+        <video id="videoPlayer" src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" playsinline></video>
+        <div id="playPauseBtn" class="controls">▶️</div>
+        <div id="bottomControls">
+            <div id="muteBtn">🔊</div>
+            <div id="progressBarContainer">
+                <div id="progressBar"></div>
+                <div id="progressHandle"></div>
+                <div id="touchOverlay"></div>
+            </div>
+            <div id="currentTime">0:00</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const videos = [
+        "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+        "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+        "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+        "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4"
+    ];
+
+    let currentIndex = 0;
+    let isDragging = false;
+
+    const videoPlayer = document.getElementById('videoPlayer');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const muteBtn = document.getElementById('muteBtn');
+    const progressBarContainer = document.getElementById('progressBarContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressHandle = document.getElementById('progressHandle');
+    const currentTimeDisplay = document.getElementById('currentTime');
+    const bottomControls = document.getElementById('bottomControls');
+    const touchOverlay = document.getElementById('touchOverlay');
+
+    // Define the central click area for the play/pause button
+    const centralClickArea = {
+        xStart: window.innerWidth * 0.3,
+        xEnd: window.innerWidth * 0.7,
+        yStart: window.innerHeight * 0.4,
+        yEnd: window.innerHeight * 0.6
+    };
+
+    // Play/Pause functionality with central click area
+    playPauseBtn.addEventListener('click', (e) => {
+        if (
+            e.clientX >= centralClickArea.xStart &&
+            e.clientX <= centralClickArea.xEnd &&
+            e.clientY >= centralClickArea.yStart &&
+            e.clientY <= centralClickArea.yEnd
+        ) {
+            if (videoPlayer.paused) {
+                videoPlayer.play();
+                playPauseBtn.innerHTML = '⏸️';
+                hideControls();
+            } else {
+                videoPlayer.pause();
+                playPauseBtn.innerHTML = '▶️';
+                showControls();
+            }
+        }
+    });
+
+    // Mute/Unmute functionality
+    muteBtn.addEventListener('click', () => {
+        videoPlayer.muted = !videoPlayer.muted;
+        muteBtn.innerHTML = videoPlayer.muted ? '🔇' : '🔊';
+    });
+
+    // Swipe functionality
+    let touchStartY = 0;
+    let touchEndY = 0;
+    const swipeThreshold = 50; // Minimum swipe distance to trigger action
+
+    document.addEventListener('touchstart', (e) => {
+        touchStartY = e.changedTouches[0].screenY;
+    });
+
+    document.addEventListener('touchend', (e) => {
+        touchEndY = e.changedTouches[0].screenY;
+
+        const isSwipeUp = touchStartY - touchEndY > swipeThreshold;
+        const isSwipeDown = touchEndY - touchStartY > swipeThreshold;
+        const isBottomHalf = touchStartY > window.innerHeight / 2;
+
+        if (isSwipeUp && isBottomHalf) {
+            goToNextVideo();
+        } else if (isSwipeDown && isBottomHalf) {
+            goToPreviousVideo();
+        }
+    });
+
+    function goToNextVideo() {
+        currentIndex = (currentIndex + 1) % videos.length;
+        videoPlayer.src = videos[currentIndex];
+        videoPlayer.currentTime = 0; // Reset playback position to the start
+        videoPlayer.play();
+        playPauseBtn.innerHTML = '⏸️';
+        hideControls();
+    }
+
+    function goToPreviousVideo() {
+        currentIndex = (currentIndex - 1 + videos.length) % videos.length;
+        videoPlayer.src = videos[currentIndex];
+        videoPlayer.currentTime = 0; // Reset playback position to the start
+        videoPlayer.play();
+        playPauseBtn.innerHTML = '⏸️';
+        hideControls();
+    }
+
+    document.getElementById('touchOverlay').addEventListener('touchstart', (e) => {
+        handleProgressBarMove(e.touches[0]);
+    });
+
+    // Progress Bar functionality
+    videoPlayer.addEventListener('timeupdate', () => {
+        if (!isDragging) {
+            const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+            progressBar.style.width = percentage + '%';
+            progressHandle.style.left = `${percentage}%`;
+            updateCurrentTime(videoPlayer.currentTime);
+        }
+    });
+
+    function handleProgressBarMove(e) {
+        const rect = progressBarContainer.getBoundingClientRect();
+        const offsetX = e.clientX - rect.left;
+        const percentage = Math.max(0, Math.min(1, offsetX / progressBarContainer.offsetWidth));
+        const newTime = percentage * videoPlayer.duration;
+        videoPlayer.currentTime = newTime;
+        progressBar.style.width = percentage * 100 + '%';
+        progressHandle.style.left = `${percentage * 100}%`;
+        updateCurrentTime(newTime);
+    }
+
+    progressBarContainer.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        progressHandle.style.display = 'block';
+        handleProgressBarMove(e);
+    });
+
+    const touchAreaHeight = 50; // Define a smaller touch area height for the progress bar
+
+    progressBarContainer.addEventListener('touchstart', (e) => {
+        if (e.touches[0].clientY <= window.innerHeight - touchAreaHeight) {
+            isDragging = true;
+            progressHandle.style.display = 'block';
+            handleProgressBarMove(e.touches[0]);
+        }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            handleProgressBarMove(e);
+        }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (isDragging) {
+            handleProgressBarMove(e);
+            isDragging = false;
+            progressHandle.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('touchmove', (e) => {
+        if (isDragging && e.touches[0].clientY <= window.innerHeight - touchAreaHeight) {
+            handleProgressBarMove(e.touches[0]);
+        }
+    });
+
+    document.addEventListener('touchend', (e) => {
+        if (isDragging && e.changedTouches[0].clientY <= window.innerHeight - touchAreaHeight) {
+            handleProgressBarMove(e.changedTouches[0]);
+            isDragging = false;
+            progressHandle.style.display = 'none';
+        }
+    });
+
+    progressBarContainer.addEventListener('click', (e) => {
+        handleProgressBarMove(e);
+    });
+
+    function updateCurrentTime(currentTime) {
+        const minutes = Math.floor(currentTime / 60);
+        const seconds = Math.floor(currentTime % 60);
+        currentTimeDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Ensure the video plays on mobile devices
+    videoPlayer.addEventListener('click', () => {
+        if (videoPlayer.paused) {
+            videoPlayer.play();
+            playPauseBtn.innerHTML = '⏸️';
+            hideControls();
+        } else {
+            videoPlayer.pause();
+            playPauseBtn.innerHTML = '▶️';
+            showControls();
+        }
+    });
+
+    // Auto-hide controls after a few seconds
+    let hideControlsTimeout;
+
+    function hideControls() {
+        playPauseBtn.style.display = 'none';
+        bottomControls.style.display = 'none';
+    }
+
+    function showControls() {
+        playPauseBtn.style.display = 'block';
+        bottomControls.style.display = 'flex';
+        clearTimeout(hideControlsTimeout);
+        hideControlsTimeout = setTimeout(() => {
+            hideControls();
+        }, 3000); // Hide controls after 3 seconds of inactivity
+    }
+
+    videoPlayer.addEventListener('play', () => {
+        hideControls();
+    });
+
+    videoPlayer.addEventListener('pause', () => {
+        showControls();
+    });
+
+    // Show controls when mouse or touch events are detected
+    document.addEventListener('mousemove', showControls);
+    document.addEventListener('touchstart', showControls);
+
+    // Ensure that controls are visible while interacting
+    progressBarContainer.addEventListener('mousedown', showControls);
+    progressBarContainer.addEventListener('touchstart', showControls);
+</script>
+
+</body>
+</html>
+
