@@ -7,15 +7,11 @@
     <title>Vertical Video Player</title>
     <style>
 
-        /* Ensure the video player adapts to different screen sizes */
-@media (max-width: 767px) {
+        @media (max-width: 100%) {
     .video-wrapper {
         max-width: 100vw;
         max-height: 100vh;
     }
-
-
-    
         body, html {
             margin: 0;
             padding: 0;
@@ -47,12 +43,11 @@
             background-color: black;
         }
 
-    video {
-        width: 100%;
-        height: 100%;
+        video {
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-        
-    }
+        }
 
         .controls {
             position: absolute;
@@ -76,13 +71,13 @@
 
         #bottomControls {
             position: absolute;
-            bottom: 10px;
+            bottom: 20px;
             left: 0;
             width: 100%;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 10px;
+            padding: 0 20px;
             box-sizing: border-box;
         }
 
@@ -96,7 +91,7 @@
 
         #progressBarContainer {
             flex-grow: 1;
-            height: 4px;
+            height: 5px;
             background-color: rgba(255, 255, 255, 0.2);
             cursor: pointer;
             margin: 0 10px;
@@ -121,7 +116,7 @@
         }
 
         #currentTime {
-            font-size: 12px;
+            font-size: 14px;
             color: white;
             opacity: 0.7;
             user-select: none; /* Prevent text selection */
